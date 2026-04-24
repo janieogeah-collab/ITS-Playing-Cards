@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Fact or Bluff? — ITS Malta</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy: #00205b;
+  --gold: #ffa300;
+  --magenta: #ff88dc;
+  --white: #ffffff;
+  --bg: #001540;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,163,0,0.07) 0%, transparent 70%),
+    repeating-linear-gradient(45deg, transparent, transparent 50px, rgba(255,163,0,0.02) 50px, rgba(255,163,0,0.02) 51px),
+    repeating-linear-gradient(-45deg, transparent, transparent 50px, rgba(255,163,0,0.02) 50px, rgba(255,163,0,0.02) 51px);
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── SCREENS ─────────────────────────────────────────────── */
+.screen {
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 0; padding: 40px 32px;
+  text-align: center;
+  background: var(--bg);
+  transition: opacity 0.4s ease;
+}
+
+.screen.hidden { opacity: 0; pointer-events: none; }
+
+.screen-logo {
+  width: 220px; height: auto;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  margin-bottom: 32px;
+}
+
+.screen-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(44px, 10vw, 80px);
+  color: var(--gold);
+  line-height: 0.95;
+  letter-spacing: -2px;
+  margin-bottom: 10px;
+}
+
+.screen-sub {
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 4px; text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 28px;
+}
+
+.screen-rule {
+  width: 48px; height: 2px;
+  background: var(--gold); opacity: 0.4;
+  margin: 0 auto 28px;
+}
+
+.screen-body {
+  font-size: 17px; line-height: 1.65;
+  color: rgba(255,255,255,0.6);
+  max-width: 380px; margin-bottom: 36px;
+}
+
+.btn-primary {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 700;
+  letter-spacing: 2.5px; text-transform: uppercase;
+  background: var(--gold); color: var(--navy);
+  border: none; border-radius: 8px;
+  padding: 18px 52px; cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+  box-shadow: 0 4px 24px rgba(255,163,0,0.3);
+}
+.btn-primary:active { transform: scale(0.96); }
+
+/* ─── SCORE BOARD ──────────────────────────────────────────── */
+#scoreboard {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 58px; z-index: 200;
+  background: rgba(0, 15, 50, 0.96);
+  border-bottom: 2px solid rgba(255,163,0,0.4);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  backdrop-filter: blur(12px);
+}
+
+.sb-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px; color: var(--gold);
+}
+
+.sb-scores {
+  display: flex; gap: 12px; align-items: center;
+}
+
+.player-score {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 13px; font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  transition: all 0.2s;
+}
+
+.player-score.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: rgba(255,163,0,0.1);
+}
+
+.player-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+
+.sb-counter {
+  font-size: 12px; font-weight: 600;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.35);
+}
+
+/* ─── STAGE ────────────────────────────────────────────────── */
+#stage {
+  position: relative; z-index: 1;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  padding: 70px 16px 100px;
+}
+
+/* ─── CARD ─────────────────────────────────────────────────── */
+.card-scene {
+  perspective: 1400px;
+  width: min(400px, min(82vw, 55vh));
+  height: min(560px, min(114vw, 77vh));
+  cursor: pointer;
+}
+
+.card-inner {
+  width: 100%; height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.25, 1, 0.4, 1);
+  border-radius: 18px;
+  filter: drop-shadow(0 28px 56px rgba(0,0,0,0.55));
+}
+
+.card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-side {
+  position: absolute; inset: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-side img {
+  width: 100%; height: 100%;
+  object-fit: fill;
+  display: block;
+  border-radius: 18px;
+}
+
+/* back face — visible when NOT flipped */
+.card-side--back {
+  /* no transform needed — it's the front by default */
+}
+
+/* front face — hidden until flipped */
+.card-side--front {
+  transform: rotateY(180deg);
+}
+
+/* tap hint */
+.tap-hint {
+  position: absolute; bottom: 24px;
+  left: 0; right: 0; text-align: center;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: rgba(255,163,0,0.55);
+  animation: blink 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes blink {
+  0%,100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* card entrance */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(36px) scale(0.93); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.card-scene.enter { animation: cardIn 0.45s cubic-bezier(0.2, 1, 0.3, 1) both; }
+
+/* ─── CONTROLS ─────────────────────────────────────────────── */
+#controls {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 90px; z-index: 200;
+  background: rgba(0, 15, 50, 0.96);
+  border-top: 2px solid rgba(255,163,0,0.25);
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; padding: 0 20px;
+  backdrop-filter: blur(12px);
+}
+
+.ctrl-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  border: none; border-radius: 8px;
+  padding: 0 24px; height: 52px;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.15s;
+  touch-action: manipulation;
+}
+.ctrl-btn:active { transform: scale(0.95); }
+
+.ctrl-btn--next {
+  background: var(--gold); color: var(--navy);
+  flex: 1; max-width: 260px;
+  font-size: 14px;
+  box-shadow: 0 4px 20px rgba(255,163,0,0.25);
+}
+
+.ctrl-btn--shuffle {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.12);
+  flex: 0 0 auto;
+}
+
+.ctrl-btn--correct {
+  background: rgba(0, 180, 80, 0.15);
+  color: #4dff9e;
+  border: 1px solid rgba(0,180,80,0.3);
+  flex: 0 0 auto;
+}
+
+.ctrl-btn--wrong {
+  background: rgba(255, 87, 20, 0.12);
+  color: #ff8055;
+  border: 1px solid rgba(255,87,20,0.25);
+  flex: 0 0 auto;
+}
+
+/* score flash */
+@keyframes scoreFlash {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.score-flash { animation: scoreFlash 0.3s ease; }
+
+/* ─── PLAYER SELECT MODAL ──────────────────────────────────── */
+#player-modal {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(0,10,40,0.92);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
+  padding: 32px;
+}
+
+#player-modal.hidden { display: none; }
+
+.modal-box {
+  background: #001a4a;
+  border: 1px solid rgba(255,163,0,0.3);
+  border-radius: 16px;
+  padding: 36px 32px;
+  width: 100%; max-width: 380px;
+  text-align: center;
+}
+
+.modal-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px; color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.modal-sub {
+  font-size: 13px; color: rgba(255,255,255,0.4);
+  letter-spacing: 1px; margin-bottom: 28px;
+}
+
+.player-count-row {
+  display: flex; gap: 10px; justify-content: center;
+  margin-bottom: 28px;
+}
+
+.count-btn {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,163,0,0.3);
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-family: 'Playfair Display', serif;
+  font-size: 22px; cursor: pointer;
+  transition: all 0.15s;
+}
+
+.count-btn.selected {
+  border-color: var(--gold);
+  background: rgba(255,163,0,0.15);
+  color: var(--gold);
+}
+
+.player-names {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 24px;
+}
+
+.player-name-input {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  color: white;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  padding: 12px 16px;
+  outline: none;
+  transition: border-color 0.15s;
+  text-align: center;
+}
+
+.player-name-input:focus {
+  border-color: rgba(255,163,0,0.5);
+}
+
+.player-name-input::placeholder { color: rgba(255,255,255,0.25); }
+
+/* ─── PLAYER COLOURS ───────────────────────────────────────── */
+</style>
+</head>
+<body>
+
+<!-- WELCOME SCREEN -->
+<div id="welcome" class="screen">
+  <img class="screen-logo"
+       src="https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/00_card_back.png"
+       alt="ITS Malta">
+  <div class="screen-title">Fact or Bluff?</div>
+  <div class="screen-sub">ITS Malta Edition</div>
+  <div class="screen-rule"></div>
+  <div class="screen-body">30 cards. How well do you know ITS Malta?<br>Draw a card, call it — win the prize.</div>
+  <button class="btn-primary" onclick="showPlayerSetup()">▶ &nbsp;Start Playing</button>
+</div>
+
+<!-- PLAYER SETUP MODAL -->
+<div id="player-modal" class="hidden">
+  <div class="modal-box">
+    <div class="modal-title">Players</div>
+    <div class="modal-sub">How many are playing?</div>
+    <div class="player-count-row">
+      <button class="count-btn selected" onclick="selectCount(1)">1</button>
+      <button class="count-btn" onclick="selectCount(2)">2</button>
+      <button class="count-btn" onclick="selectCount(3)">3</button>
+      <button class="count-btn" onclick="selectCount(4)">4</button>
+    </div>
+    <div class="player-names" id="player-names"></div>
+    <button class="btn-primary" style="width:100%" onclick="startGame()">Start Game →</button>
+  </div>
+</div>
+
+<!-- FINISHED SCREEN -->
+<div id="finished" class="screen hidden">
+  <div class="screen-title" style="font-size:clamp(32px,7vw,56px);">Game Over!</div>
+  <div class="screen-sub">All 30 cards played</div>
+  <div class="screen-rule"></div>
+  <div id="final-scores" style="margin-bottom:32px;display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;"></div>
+  <div class="screen-body" style="font-size:14px;">Find out more at <strong style="color:var(--gold)">its.edu.mt</strong></div>
+  <button class="btn-primary" onclick="showPlayerSetup()" style="margin-top:24px">↺ &nbsp;Play Again</button>
+</div>
+
+<!-- SCOREBOARD -->
+<div id="scoreboard">
+  <div class="sb-title">Fact or Bluff?</div>
+  <div class="sb-scores" id="sb-scores"></div>
+  <div class="sb-counter" id="sb-counter">1 / 30</div>
+</div>
+
+<!-- CARD STAGE -->
+<div id="stage">
+  <div class="card-scene enter" id="card-scene" onclick="flipCard()">
+    <div class="card-inner" id="card-inner">
+      <div class="card-side card-side--back">
+        <img id="card-back-img"
+             src="https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/00_card_back.png"
+             alt="Card back">
+        <div class="tap-hint">Tap to reveal</div>
+      </div>
+      <div class="card-side card-side--front">
+        <img id="card-face-img" src="" alt="Card face">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- CONTROLS -->
+<div id="controls">
+  <button class="ctrl-btn ctrl-btn--shuffle" onclick="shuffleDeck()">↺</button>
+  <button class="ctrl-btn ctrl-btn--wrong"   id="btn-wrong"   onclick="markWrong()"   style="display:none">✗ Wrong</button>
+  <button class="ctrl-btn ctrl-btn--next"    id="btn-next"    onclick="nextCard()">Next Card →</button>
+  <button class="ctrl-btn ctrl-btn--correct" id="btn-correct" onclick="markCorrect()" style="display:none">✓ Correct</button>
+</div>
+
+<script>
+const BASE = "https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/";
+
+const PLAYER_COLOURS = [
+  { dot: '#ffa300', name: 'Gold'    },
+  { dot: '#10c0f1', name: 'Cyan'    },
+  { dot: '#ff88dc', name: 'Pink'    },
+  { dot: '#d8e265', name: 'Lime'    },
+];
+
+const CARD_FILES = [
+  '01_face_fact.png','02_face_fact.png','03_face_bluff.png','04_face_fact.png',
+  '05_face_bluff.png','06_face_fact.png','07_face_bluff.png','08_face_fact.png',
+  '09_face_bluff.png','10_face_fact.png','11_face_bluff.png','12_face_fact.png',
+  '13_face_bluff.png','14_face_fact.png','15_face_bluff.png','16_face_fact.png',
+  '17_face_bluff.png','18_face_fact.png','19_face_bluff.png','20_face_fact.png',
+  '21_face_bluff.png','22_face_fact.png','23_face_bluff.png','24_face_fact.png',
+  '25_face_fact.png','26_face_fact.png','27_face_bluff.png','28_face_fact.png',
+  '29_face_bluff.png','30_face_fact.png',
+];
+
+let players      = [];
+let activePlayer = 0;
+let deck         = [];
+let currentIndex = 0;
+let isFlipped    = false;
+let playerCount  = 1;
+
+// ── SETUP ────────────────────────────────────────────────────
+function showPlayerSetup() {
+  hide('welcome'); hide('finished');
+  document.getElementById('player-modal').classList.remove('hidden');
+  selectCount(1);
+}
+
+function selectCount(n) {
+  playerCount = n;
+  document.querySelectorAll('.count-btn').forEach((b,i) => {
+    b.classList.toggle('selected', i+1 === n);
+  });
+  const container = document.getElementById('player-names');
+  container.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const inp = document.createElement('input');
+    inp.className = 'player-name-input';
+    inp.placeholder = `Player ${i+1} name`;
+    inp.id = `pname_${i}`;
+    inp.style.borderColor = PLAYER_COLOURS[i].dot + '55';
+    container.appendChild(inp);
+  }
+}
+
+function startGame() {
+  players = [];
+  for (let i = 0; i < playerCount; i++) {
+    const inp = document.getElementById(`pname_${i}`);
+    players.push({
+      name:  inp && inp.value.trim() ? inp.value.trim() : `Player ${i+1}`,
+      score: 0,
+      colour: PLAYER_COLOURS[i].dot,
+    });
+  }
+  activePlayer = 0;
+  deck = shuffle([...Array(CARD_FILES.length).keys()]);
+  currentIndex = 0;
+  document.getElementById('player-modal').classList.add('hidden');
+  buildScoreboard();
+  updateScoreboard();
+  loadCard();
+  showControls(false);
+}
+
+// ── SCOREBOARD ───────────────────────────────────────────────
+function buildScoreboard() {
+  const sb = document.getElementById('sb-scores');
+  sb.innerHTML = '';
+  players.forEach((p,i) => {
+    const el = document.createElement('div');
+    el.className = 'player-score' + (i===activePlayer?' active':'');
+    el.id = `ps_${i}`;
+    el.innerHTML = `<span class="player-dot" style="background:${p.colour}"></span>${p.name}: <span id="pts_${i}">0</span>`;
+    sb.appendChild(el);
+  });
+}
+
+function updateScoreboard() {
+  players.forEach((p,i) => {
+    const el = document.getElementById(`ps_${i}`);
+    if (el) el.className = 'player-score' + (i===activePlayer?' active':'');
+    const pts = document.getElementById(`pts_${i}`);
+    if (pts) pts.textContent = p.score;
+  });
+  document.getElementById('sb-counter').textContent = `${currentIndex+1} / ${deck.length}`;
+}
+
+// ── CARD LOGIC ───────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i=a.length-1; i>0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function loadCard() {
+  isFlipped = false;
+  document.getElementById('card-inner').classList.remove('is-flipped');
+  document.getElementById('card-face-img').src = BASE + CARD_FILES[deck[currentIndex]];
+  updateScoreboard();
+  // entrance animation
+  const scene = document.getElementById('card-scene');
+  scene.classList.remove('enter');
+  void scene.offsetWidth;
+  scene.classList.add('enter');
+  showControls(false);
+}
+
+function flipCard() {
+  if (!players.length) return;
+  isFlipped = !isFlipped;
+  document.getElementById('card-inner').classList.toggle('is-flipped', isFlipped);
+  if (isFlipped) showControls(true);
+}
+
+function showControls(revealed) {
+  const multi = players.length > 1;
+  document.getElementById('btn-next').style.display    = (!multi || !revealed) ? '' : 'none';
+  document.getElementById('btn-correct').style.display = (multi && revealed)   ? '' : 'none';
+  document.getElementById('btn-wrong').style.display   = (multi && revealed)   ? '' : 'none';
+}
+
+function markCorrect() {
+  players[activePlayer].score++;
+  const el = document.getElementById(`pts_${activePlayer}`);
+  el.classList.remove('score-flash');
+  void el.offsetWidth;
+  el.classList.add('score-flash');
+  advance();
+}
+
+function markWrong() { advance(); }
+
+function advance() {
+  activePlayer = (activePlayer + 1) % players.length;
+  nextCard();
+}
+
+function nextCard() {
+  currentIndex++;
+  if (currentIndex >= deck.length) { showFinished(); return; }
+  loadCard();
+}
+
+function shuffleDeck() {
+  deck = shuffle([...Array(CARD_FILES.length).keys()]);
+  currentIndex = 0;
+  players.forEach(p => p.score = 0);
+  activePlayer = 0;
+  buildScoreboard();
+  loadCard();
+}
+
+// ── FINISHED ─────────────────────────────────────────────────
+function showFinished() {
+  const sorted = [...players].sort((a,b) => b.score-a.score);
+  const container = document.getElementById('final-scores');
+  container.innerHTML = '';
+  sorted.forEach((p,i) => {
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 20px;`;
+    row.innerHTML = `
+      <span style="display:flex;align-items:center;gap:10px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:${p.colour};display:inline-block"></span>
+        <span style="color:white;font-weight:600;font-size:16px">${i===0?'🏆 ':''}${p.name}</span>
+      </span>
+      <span style="color:var(--gold);font-family:'Playfair Display',serif;font-size:24px;font-weight:700">${p.score}</span>`;
+    container.appendChild(row);
+  });
+  document.getElementById('finished').classList.remove('hidden');
+}
+
+// ── UTILS ────────────────────────────────────────────────────
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+// keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.code==='Space'||e.code==='ArrowRight') { e.preventDefault(); isFlipped ? nextCard() : flipCard(); }
+  if (e.code==='ArrowUp'||e.code==='ArrowDown') { e.preventDefault(); flipCard(); }
+  if (e.code==='KeyC') markCorrect();
+  if (e.code==='KeyX') markWrong();
+});
+</script>
+</body>
+</html>
