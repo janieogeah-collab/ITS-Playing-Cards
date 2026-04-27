@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ITS Fact or Bluff — Expo Mode</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* ── RESET & VARIABLES ─────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --navy:#00205b; --dark:#000d2e; --darker:#00071a;
+  --gold:#ffa300; --gold2:rgba(255,163,0,0.22);
+  --cyan:#00e5ff; --mag:#ff3399;
+  --green:#00ff88; --red:#ff3355; --white:#fff;
+}
+html,body{width:100%;height:100%;overflow:hidden;
+  background:var(--darker);font-family:'DM Sans',sans-serif;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%,rgba(255,163,0,.07) 0%,transparent 60%),
+    repeating-linear-gradient(45deg,transparent,transparent 60px,rgba(255,163,0,.018) 60px,rgba(255,163,0,.018) 61px),
+    repeating-linear-gradient(-45deg,transparent,transparent 60px,rgba(255,163,0,.018) 60px,rgba(255,163,0,.018) 61px);}
+
+/* ── SCREEN BASE ───────────────────────────────────────────── */
+.screen{position:fixed;inset:0;z-index:100;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;background:var(--darker);
+  transition:opacity .3s,visibility .3s;}
+.screen.hidden{opacity:0;visibility:hidden;pointer-events:none;}
+
+/* ── ATTRACT SCREEN ────────────────────────────────────────── */
+#attract{z-index:200;text-align:center;cursor:pointer;}
+.att-logo{width:min(150px,32vw);border-radius:14px;margin-bottom:20px;
+  animation:pulse-logo 3s ease-in-out infinite;
+  box-shadow:0 0 40px rgba(255,163,0,.3);}
+@keyframes pulse-logo{0%,100%{box-shadow:0 0 40px rgba(255,163,0,.3)}50%{box-shadow:0 0 80px rgba(255,163,0,.65)}}
+.att-title{font-family:'Playfair Display',serif;
+  font-size:clamp(56px,13vw,108px);color:var(--gold);line-height:.88;
+  letter-spacing:-3px;margin-bottom:10px;
+  text-shadow:0 0 50px rgba(255,163,0,.45);}
+.att-sub{font-size:clamp(10px,2vw,13px);font-weight:700;letter-spacing:5px;
+  text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:28px;}
+.att-lb-title{font-size:11px;font-weight:700;letter-spacing:4px;
+  text-transform:uppercase;color:rgba(255,255,255,.28);margin-bottom:12px;}
+.att-lb-wrap{width:100%;max-width:400px;margin-bottom:28px;}
+.att-lb-row{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;border-radius:10px;margin-bottom:6px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);}
+.att-rank{font-size:16px;width:28px;}
+.att-pname{flex:1;text-align:left;font-weight:600;font-size:14px;
+  color:var(--white);margin-left:8px;}
+.att-pscore{font-family:'Playfair Display',serif;font-size:24px;color:var(--gold);}
+.att-empty{color:rgba(255,255,255,.22);font-size:13px;padding:12px 0;}
+.att-tap{font-size:clamp(20px,4.5vw,30px);font-weight:800;letter-spacing:2px;
+  text-transform:uppercase;color:var(--gold);
+  animation:blink 1.5s ease-in-out infinite;margin-top:4px;}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+.att-prize{font-size:12px;color:rgba(255,255,255,.3);margin-top:10px;letter-spacing:.5px;}
+
+/* ── PHONE JOIN ────────────────────────────────────────────── */
+#phone-join{z-index:300;}
+.ph-logo{width:90px;border-radius:10px;margin-bottom:18px;}
+.ph-title{font-family:'Playfair Display',serif;font-size:34px;color:var(--gold);margin-bottom:6px;}
+.ph-sub{font-size:13px;color:rgba(255,255,255,.45);margin-bottom:26px;
+  text-align:center;max-width:280px;line-height:1.65;}
+.ph-inp{width:100%;max-width:300px;background:rgba(255,255,255,.07);
+  border:2px solid rgba(255,163,0,.3);border-radius:12px;color:var(--white);
+  font-family:'DM Sans',sans-serif;font-size:18px;font-weight:600;
+  padding:16px 20px;outline:none;text-align:center;margin-bottom:14px;}
+.ph-inp:focus{border-color:var(--gold);}
+.ph-btn{background:var(--gold);color:var(--navy);font-family:'DM Sans',sans-serif;
+  font-size:15px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  border:none;border-radius:12px;padding:18px 40px;cursor:pointer;
+  width:100%;max-width:300px;}
+.ph-ok{text-align:center;display:none;}
+.ph-ok-icon{font-size:60px;margin-bottom:14px;}
+.ph-ok-msg{font-size:19px;color:var(--white);font-weight:700;margin-bottom:6px;}
+.ph-ok-sub{font-size:14px;color:rgba(255,255,255,.45);line-height:1.65;max-width:280px;}
+.ph-score-box{margin-top:22px;background:rgba(255,163,0,.1);
+  border:2px solid rgba(255,163,0,.3);border-radius:14px;padding:16px 28px;text-align:center;}
+.ph-score-lbl{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.35);}
+.ph-score-val{font-family:'Playfair Display',serif;font-size:52px;color:var(--gold);font-weight:700;}
+
+/* ── LOBBY ─────────────────────────────────────────────────── */
+#lobby{z-index:150;}
+.lb-title{font-family:'Playfair Display',serif;font-size:clamp(30px,7vw,54px);
+  color:var(--gold);margin-bottom:6px;text-align:center;}
+.lb-sub{font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;
+  color:rgba(255,255,255,.3);margin-bottom:24px;}
+.lb-qr-box{background:#fff;border-radius:16px;padding:14px;margin-bottom:14px;
+  box-shadow:0 0 44px rgba(255,163,0,.2);}
+.lb-qr-hint{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,.35);margin-bottom:18px;text-align:center;}
+.lb-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  max-width:380px;margin-bottom:20px;min-height:44px;}
+.lb-chip{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);
+  border-radius:22px;padding:7px 16px;font-size:14px;font-weight:600;color:var(--white);
+  animation:chip-in .3s ease;}
+@keyframes chip-in{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.lb-wait{font-size:13px;color:rgba(255,255,255,.28);animation:blink 2s infinite;}
+.lb-start{background:var(--gold);color:var(--navy);font-family:'DM Sans',sans-serif;
+  font-size:16px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  border:none;border-radius:12px;padding:20px 54px;cursor:pointer;margin-bottom:10px;
+  box-shadow:0 8px 32px rgba(255,163,0,.3);}
+.lb-skip{font-size:12px;color:rgba(255,255,255,.28);cursor:pointer;text-decoration:underline;}
+
+/* ── GAME SCREEN ───────────────────────────────────────────── */
+#game{padding:0;display:grid;grid-template-rows:auto 1fr auto;height:100%;}
+
+/* Top bar */
+.g-bar{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:rgba(0,10,38,.97);
+  border-bottom:2px solid rgba(255,163,0,.22);flex-shrink:0;}
+.g-logo{width:34px;border-radius:6px;cursor:pointer;flex-shrink:0;}
+.g-brand{font-family:'Playfair Display',serif;font-size:clamp(14px,3.2vw,20px);
+  color:var(--gold);flex:1;text-align:center;}
+.g-info{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;}
+.g-counter{font-size:11px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,.32);}
+.g-hi{font-size:10px;font-weight:700;color:rgba(255,255,255,.25);}
+
+/* Middle / card area */
+.g-mid{display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:10px 14px;overflow:hidden;gap:10px;}
+
+/* 3-D card */
+.card-scene{perspective:1000px;
+  width:min(300px,68vw,37vh);height:min(420px,95vw,52vh);}
+.card-flipper{width:100%;height:100%;position:relative;
+  transform-style:preserve-3d;transition:transform .65s cubic-bezier(.4,0,.2,1);}
+.card-flipper.flipped{transform:rotateY(180deg);}
+.c-back,.c-front{position:absolute;inset:0;border-radius:16px;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;
+  box-shadow:0 20px 56px rgba(0,0,0,.6);}
+.c-front{transform:rotateY(180deg);}
+.c-back img,.c-front img{width:100%;height:100%;object-fit:fill;display:block;}
+@keyframes card-deal{from{opacity:0;transform:translateY(-55px) rotate(-5deg)}to{opacity:1;transform:none}}
+.card-deal{animation:card-deal .45s cubic-bezier(.2,1,.3,1) both;}
+
+/* Statement */
+.g-stmt{font-size:clamp(13px,2.8vw,17px);font-weight:600;
+  color:rgba(255,255,255,.88);text-align:center;line-height:1.55;
+  max-width:500px;padding:0 6px;min-height:48px;transition:opacity .3s;}
+.g-stmt.blank{opacity:0;}
+
+/* Combo / hint */
+.g-combo{display:flex;align-items:center;justify-content:center;gap:8px;min-height:26px;}
+.combo-fires{font-size:20px;}
+.combo-lbl{font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);opacity:0;transition:opacity .3s;}
+.combo-lbl.on{opacity:1;}
+.g-hint{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(255,163,0,.38);animation:blink 2s infinite;}
+
+/* ── PLAYER ZONES ─────────────────────────────────────────── */
+.g-bot{display:grid;flex-shrink:0;
+  background:rgba(0,7,26,.98);border-top:2px solid rgba(255,163,0,.13);}
+.g-bot.solo{grid-template-columns:1fr;padding:14px 16px 20px;}
+.g-bot.versus{grid-template-columns:1fr 1fr;}
+
+.pzone{display:flex;flex-direction:column;align-items:center;
+  padding:12px 8px 16px;gap:6px;}
+.pzone.p1z{border-right:1px solid rgba(255,255,255,.07);}
+
+.pz-name{font-size:clamp(11px,2.4vw,14px);font-weight:700;letter-spacing:1px;
+  text-transform:uppercase;color:rgba(255,255,255,.55);}
+.pz-score{font-family:'Playfair Display',serif;font-size:clamp(30px,6.5vw,48px);
+  font-weight:700;line-height:1;transition:all .2s;}
+.pz-score.c1{color:var(--cyan);}
+.pz-score.c2{color:var(--mag);}
+.pz-streak{font-size:17px;min-height:20px;}
+.pz-clbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);opacity:0;min-height:14px;transition:opacity .2s;}
+.pz-clbl.on{opacity:1;}
+.pz-btns{display:flex;flex-direction:column;gap:7px;width:100%;margin-top:4px;}
+.solo .pz-btns{flex-direction:row;max-width:360px;}
+
+/* Buttons */
+.btn-f,.btn-b{border:none;border-radius:11px;cursor:pointer;
+  font-family:'DM Sans',sans-serif;font-weight:800;text-transform:uppercase;
+  letter-spacing:1.5px;transition:transform .1s,box-shadow .2s,opacity .15s;
+  touch-action:manipulation;
+  height:clamp(50px,8.5vh,72px);font-size:clamp(14px,2.6vw,18px);width:100%;}
+.btn-f{background:linear-gradient(135deg,#005528,#009944);color:#fff;
+  box-shadow:0 4px 18px rgba(0,200,80,.22);}
+.btn-b{background:linear-gradient(135deg,#7a001e,#bb002b);color:#fff;
+  box-shadow:0 4px 18px rgba(220,0,50,.22);}
+.btn-f:active,.btn-b:active{transform:scale(.93);}
+.btn-f:hover{box-shadow:0 4px 28px rgba(0,200,80,.42);}
+.btn-b:hover{box-shadow:0 4px 28px rgba(255,50,80,.42);}
+.btn-f.locked,.btn-b.locked{opacity:.3;cursor:default;transform:none!important;box-shadow:none;}
+.btn-f.chosen{background:linear-gradient(135deg,#00aa44,#00ff88);
+  box-shadow:0 0 28px rgba(0,255,136,.55);transform:scale(1.04);}
+.btn-b.chosen{background:linear-gradient(135deg,#cc0033,#ff3366);
+  box-shadow:0 0 28px rgba(255,50,100,.55);transform:scale(1.04);}
+@keyframes score-pop{0%{transform:scale(1)}45%{transform:scale(1.45)}100%{transform:scale(1)}}
+.popping{animation:score-pop .32s ease;}
+
+/* ── RESULT OVERLAY ───────────────────────────────────────── */
+#result-ov{position:fixed;inset:0;z-index:500;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(0,4,18,.93);backdrop-filter:blur(14px);
+  padding:22px;opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .2s,visibility .2s;}
+#result-ov.show{opacity:1;visibility:visible;pointer-events:auto;}
+
+.res-badge{font-family:'Playfair Display',serif;
+  font-size:clamp(54px,14vw,108px);font-weight:900;
+  letter-spacing:-2px;line-height:1;margin-bottom:8px;
+  opacity:0;transform:scale(.35) rotate(-10deg);}
+.res-badge.slam{animation:badge-slam .5s cubic-bezier(.2,1.5,.3,1) forwards;}
+@keyframes badge-slam{to{opacity:1;transform:scale(1) rotate(0)}}
+.res-badge.busted{color:var(--red);text-shadow:0 0 50px rgba(255,40,70,.85);}
+.res-badge.confirmed{color:var(--green);text-shadow:0 0 50px rgba(0,255,120,.85);}
+.res-badge.wrong{color:rgba(255,255,255,.55);}
+
+.res-who{font-size:clamp(16px,3.5vw,24px);font-weight:700;color:var(--white);
+  margin-bottom:14px;opacity:0;transition:opacity .3s .38s;}
+.res-who.on{opacity:1;}
+
+.res-box{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.11);
+  border-radius:16px;padding:16px 20px;max-width:460px;width:100%;
+  margin-bottom:14px;opacity:0;transition:opacity .3s .5s;}
+.res-box.on{opacity:1;}
+.res-box-lbl{font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(255,255,255,.32);margin-bottom:7px;}
+.res-box-txt{font-size:clamp(14px,2.8vw,17px);line-height:1.62;color:rgba(255,255,255,.9);}
+
+.res-deltas{display:flex;gap:14px;justify-content:center;margin-bottom:18px;
+  flex-wrap:wrap;opacity:0;transition:opacity .3s .62s;}
+.res-deltas.on{opacity:1;}
+.res-d{font-size:clamp(16px,3.5vw,22px);font-weight:800;border-radius:10px;padding:8px 16px;}
+.res-d.gain{color:var(--green);background:rgba(0,255,136,.1);}
+.res-d.loss{color:var(--red);background:rgba(255,50,80,.1);}
+.res-d.nil{color:rgba(255,255,255,.28);background:rgba(255,255,255,.04);}
+
+.res-next{background:var(--gold);color:var(--navy);font-family:'DM Sans',sans-serif;
+  font-size:15px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  border:none;border-radius:12px;padding:18px 46px;cursor:pointer;
+  box-shadow:0 6px 28px rgba(255,163,0,.3);}
+
+/* ── GAME OVER ─────────────────────────────────────────────── */
+#gameover{z-index:200;}
+.go-title{font-family:'Playfair Display',serif;font-size:clamp(42px,10vw,76px);
+  color:var(--gold);margin-bottom:6px;text-align:center;}
+.go-sub{font-size:12px;font-weight:700;letter-spacing:4px;text-transform:uppercase;
+  color:rgba(255,255,255,.28);margin-bottom:24px;}
+.go-prize{background:linear-gradient(135deg,rgba(255,163,0,.14),rgba(255,163,0,.04));
+  border:2px solid rgba(255,163,0,.38);border-radius:16px;
+  padding:16px 22px;max-width:380px;width:100%;text-align:center;margin-bottom:18px;}
+.go-prize-t{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:6px;}
+.go-prize-body{font-size:14px;color:rgba(255,255,255,.7);line-height:1.62;}
+.go-rows{display:flex;flex-direction:column;gap:8px;width:100%;
+  max-width:360px;margin-bottom:22px;}
+.go-row{display:flex;align-items:center;justify-content:space-between;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;padding:12px 18px;}
+.go-row-l{display:flex;align-items:center;gap:10px;}
+.go-row-rank{font-size:20px;}
+.go-row-name{font-weight:700;color:var(--white);font-size:15px;}
+.go-row-score{font-family:'Playfair Display',serif;font-size:30px;color:var(--gold);}
+.go-again{background:var(--gold);color:var(--navy);font-family:'DM Sans',sans-serif;
+  font-size:15px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  border:none;border-radius:12px;padding:18px 46px;cursor:pointer;
+  box-shadow:0 6px 28px rgba(255,163,0,.3);}
+
+/* ── ANCHOR PANEL ──────────────────────────────────────────── */
+#anch-panel{position:fixed;bottom:14px;right:14px;z-index:600;
+  background:rgba(0,10,38,.97);border:1px solid rgba(255,163,0,.25);
+  border-radius:14px;padding:14px;display:flex;flex-direction:column;
+  gap:8px;min-width:136px;
+  opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,visibility .2s;}
+#anch-panel.show{opacity:1;visibility:visible;pointer-events:auto;}
+.anch-lbl{font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+  color:rgba(255,255,255,.22);text-align:center;margin-bottom:2px;}
+.anch-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;color:rgba(255,255,255,.7);font-family:'DM Sans',sans-serif;
+  font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  padding:10px 14px;cursor:pointer;text-align:center;transition:background .15s;}
+.anch-btn:hover{background:rgba(255,163,0,.14);color:var(--gold);}
+.anch-btn.hi{background:rgba(255,163,0,.14);border-color:rgba(255,163,0,.34);color:var(--gold);}
+.anch-close{color:rgba(255,255,255,.28);font-size:10px;margin-top:2px;}
+
+/* ── CONFETTI ──────────────────────────────────────────────── */
+.cp{position:fixed;top:-12px;z-index:900;pointer-events:none;
+  animation:cf linear forwards;}
+@keyframes cf{0%{transform:translateY(0) rotate(0) scaleX(1);opacity:1;}
+  80%{opacity:1;}100%{transform:translateY(108vh) rotate(700deg) scaleX(-1);opacity:0;}}
+
+/* ── FLASH ────────────────────────────────────────────────── */
+#flash{position:fixed;inset:0;z-index:800;pointer-events:none;opacity:0;}
+@keyframes flash-out{0%{opacity:.65}100%{opacity:0}}
+
+/* ── SCORE FLOAT ──────────────────────────────────────────── */
+.sfloat{position:fixed;font-family:'Playfair Display',serif;
+  font-size:30px;font-weight:700;pointer-events:none;z-index:700;
+  animation:sf-rise 1.1s ease-out forwards;}
+@keyframes sf-rise{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-90px)}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     ATTRACT / IDLE BILLBOARD
+══════════════════════════════════════════════════════════ -->
+<div id="attract" class="screen" onclick="dismissAttract()">
+  <img class="att-logo"
+    src="https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/00_card_back.png" alt="ITS">
+  <div class="att-title">Fact<br>or Bluff?</div>
+  <div class="att-sub">ITS Malta · Expo Edition</div>
+  <div class="att-lb-wrap">
+    <div class="att-lb-title">🏆 Today's Leaders</div>
+    <div id="att-lb"></div>
+  </div>
+  <div class="att-tap">▶ Tap to Play</div>
+  <div class="att-prize">Score 500 + points to claim your ITS prize!</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PHONE JOIN (opened via QR code on player's phone)
+══════════════════════════════════════════════════════════ -->
+<div id="phone-join" class="screen hidden">
+  <img class="ph-logo"
+    src="https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/00_card_back.png" alt="ITS">
+  <div class="ph-title">Join the Game!</div>
+  <div class="ph-sub">Enter your name, then step up to the big screen to play.</div>
+  <input id="ph-inp" class="ph-inp" type="text" placeholder="Your name" maxlength="20"
+    autocomplete="off" autocorrect="off" autocapitalize="words"
+    onkeydown="if(event.key==='Enter')phoneJoin()">
+  <button class="ph-btn" onclick="phoneJoin()">Join Now →</button>
+  <div id="ph-ok" class="ph-ok">
+    <div class="ph-ok-icon">🎉</div>
+    <div class="ph-ok-msg">You're in!</div>
+    <div class="ph-ok-sub">Step up to the screen and press FACT or BLUFF. Good luck!</div>
+    <div class="ph-score-box">
+      <div class="ph-score-lbl">Your Score</div>
+      <div class="ph-score-val" id="ph-score-val">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     LOBBY — QR code + waiting for players
+══════════════════════════════════════════════════════════ -->
+<div id="lobby" class="screen hidden">
+  <div class="lb-title">Scan to Join!</div>
+  <div class="lb-sub">Then step up to the screen to play</div>
+  <div class="lb-qr-box"><div id="qr-div"></div></div>
+  <div class="lb-qr-hint">— or tap below to start right away —</div>
+  <div class="lb-chips" id="lb-chips">
+    <div class="lb-wait">Waiting for players…</div>
+  </div>
+  <button class="lb-start" onclick="startGame()">▶ Start Game</button>
+  <span class="lb-skip" onclick="startGame()">Skip QR — play on screen only</span>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     GAME SCREEN
+══════════════════════════════════════════════════════════ -->
+<div id="game" class="screen hidden">
+  <!-- Top bar -->
+  <div class="g-bar">
+    <img id="anch-trig" class="g-logo"
+      src="https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/00_card_back.png"
+      alt="ITS" title="Triple-tap for anchor controls">
+    <div class="g-brand">Fact or Bluff?</div>
+    <div class="g-info">
+      <div class="g-counter" id="g-ctr">1 / 30</div>
+      <div class="g-hi" id="g-hi">Best: 0</div>
+    </div>
+  </div>
+
+  <!-- Card + text -->
+  <div class="g-mid">
+    <div class="card-scene">
+      <div class="card-flipper" id="flipper">
+        <div class="c-back">
+          <img src="https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/00_card_back.png" alt="back">
+        </div>
+        <div class="c-front">
+          <img id="face-img"
+            src="https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/00_card_back.png" alt="face">
+        </div>
+      </div>
+    </div>
+    <div class="g-stmt blank" id="g-stmt"></div>
+    <div class="g-combo" id="g-combo">
+      <span class="g-hint" id="g-hint">Waiting for Anchor to reveal…</span>
+      <span class="combo-fires" id="c-fires" style="display:none"></span>
+      <span class="combo-lbl" id="c-lbl"></span>
+    </div>
+  </div>
+
+  <!-- Player zones -->
+  <div class="g-bot solo" id="g-bot">
+    <!-- P1 -->
+    <div class="pzone p1z" id="zone0">
+      <div class="pz-name" id="pname0">Player 1</div>
+      <div class="pz-score c1" id="pscore0">0</div>
+      <div class="pz-streak" id="pstreak0"></div>
+      <div class="pz-clbl" id="pclbl0">🔥 COMBO ×2</div>
+      <div class="pz-btns">
+        <button class="btn-f" id="pf0" onclick="guess(0,'fact')">✓ FACT</button>
+        <button class="btn-b" id="pb0" onclick="guess(0,'bluff')">✗ BLUFF</button>
+      </div>
+    </div>
+    <!-- P2 -->
+    <div class="pzone" id="zone1" style="display:none">
+      <div class="pz-name" id="pname1">Player 2</div>
+      <div class="pz-score c2" id="pscore1">0</div>
+      <div class="pz-streak" id="pstreak1"></div>
+      <div class="pz-clbl" id="pclbl1">🔥 COMBO ×2</div>
+      <div class="pz-btns">
+        <button class="btn-f" id="pf1" onclick="guess(1,'fact')">✓ FACT</button>
+        <button class="btn-b" id="pb1" onclick="guess(1,'bluff')">✗ BLUFF</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     RESULT OVERLAY
+══════════════════════════════════════════════════════════ -->
+<div id="result-ov">
+  <div class="res-badge" id="res-badge"></div>
+  <div class="res-who" id="res-who"></div>
+  <div class="res-box" id="res-box">
+    <div class="res-box-lbl">The Truth</div>
+    <div class="res-box-txt" id="res-txt"></div>
+  </div>
+  <div class="res-deltas" id="res-deltas"></div>
+  <button class="res-next" onclick="nextCard()">Next Card →</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     GAME OVER
+══════════════════════════════════════════════════════════ -->
+<div id="gameover" class="screen hidden">
+  <div class="go-title">Game Over!</div>
+  <div class="go-sub">All 30 cards played</div>
+  <div class="go-prize" id="go-prize" style="display:none">
+    <div class="go-prize-t">🏅 Prize Unlocked!</div>
+    <div class="go-prize-body" id="go-prize-body"></div>
+  </div>
+  <div class="go-rows" id="go-rows"></div>
+  <button class="go-again" onclick="goAttract()">↺ Play Again</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ANCHOR PANEL (triple-tap logo to open)
+══════════════════════════════════════════════════════════ -->
+<div id="anch-panel">
+  <div class="anch-lbl">⚓ Anchor Controls</div>
+  <button class="anch-btn hi" onclick="doReveal()">🃏 Reveal Card</button>
+  <button class="anch-btn"    onclick="doJudge()">⚖️ Judge Round</button>
+  <button class="anch-btn"    onclick="nextCard()">▶ Next Card</button>
+  <button class="anch-btn"    onclick="doReset()">↺ Reset Game</button>
+  <button class="anch-btn anch-close" onclick="closeAnch()">✕ Close</button>
+</div>
+
+<div id="flash"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════ -->
+<script>
+/* ── CARD DATA ─────────────────────────────────────────────── */
+const BASE = 'https://raw.githubusercontent.com/janieogeah-collab/ITS-Playing-Cards/main/';
+const BACK = BASE + '00_card_back.png';
+
+const CARDS = [
+  { n:1,  f:'01_face_fact.png',  t:'fact',
+    s:"Founded in 1987, ITS is one of Malta's longest-standing specialist higher education institutions.",
+    r:"TRUE — ITS has been shaping Malta's hospitality and tourism professionals for nearly 40 years, making it one of the oldest specialist institutions on the island." },
+  { n:2,  f:'02_face_fact.png',  t:'fact',
+    s:"ITS offers programmes from MQF Level 2 (Foundation) right up to MQF Level 7 (Master's degree).",
+    r:"TRUE — ITS covers the full Malta Qualifications Framework ladder, from entry-level Foundation all the way to postgraduate Master's level. Something for every career stage." },
+  { n:3,  f:'03_face_bluff.png', t:'bluff',
+    s:"ITS has two campuses — one in Luqa, near Malta International Airport, and another in Qala, Gozo.",
+    r:"BLUFF! ITS does have a Gozo campus, but it's in Victoria — Gozo's capital — not Qala. Qala is a separate village on the other side of the island." },
+  { n:4,  f:'04_face_fact.png',  t:'fact',
+    s:"ITS operates a satellite campus in Shanghai, China.",
+    r:"TRUE — ITS has extended its reach internationally with a campus in Shanghai, bringing Maltese hospitality education expertise directly to Asia." },
+  { n:5,  f:'05_face_bluff.png', t:'bluff',
+    s:"ITS is accredited by THE-ICE — the International Centre of Excellence in Tourism and Hospitality Education.",
+    r:"BLUFF! ITS does not hold THE-ICE accreditation. Don't be fooled by an impressive-sounding name — this accreditation does not apply to ITS." },
+  { n:6,  f:'06_face_fact.png',  t:'fact',
+    s:"Chef Andrew Farrugia, an ITS lecturer, created the world's longest chocolate sculpture — 55.27 metres — in Milan, January 2026.",
+    r:"TRUE — An ITS lecturer holds a Guinness World Record! Chef Andrew Farrugia's extraordinary 55.27-metre chocolate sculpture set the record in Milan just months ago." },
+  { n:7,  f:'07_face_bluff.png', t:'bluff',
+    s:"The sculpture was made from 3,000kg of Belgian chocolate, shaped across one locomotive and 22 carriages.",
+    r:"BLUFF! The record-breaking sculpture is real, but these specific details — the weight and number of carriages — have been fabricated for this card." },
+  { n:8,  f:'08_face_fact.png',  t:'fact',
+    s:"The BSc in Diving Safety Management is a world first, launched with DAN Europe Foundation and offered at the Gozo campus.",
+    r:"TRUE — A genuine world first! ITS and DAN Europe Foundation created the only degree-level Diving Safety Management programme on the planet, based at the Gozo campus." },
+  { n:9,  f:'09_face_bluff.png', t:'bluff',
+    s:"ITS offers programmes across culinary arts, events, rooms division, food & beverage, travel, heritage interpretation, tourist guiding, diving, spa & wellness, climate-friendly travel and more.",
+    r:"BLUFF! While ITS has an impressive range, this list exaggerates the breadth — several items mentioned are not programmes ITS currently offers." },
+  { n:10, f:'10_face_fact.png',  t:'fact',
+    s:"The Master of Arts in Heritage Interpretation is one of ITS's postgraduate offerings.",
+    r:"TRUE — ITS offers this specialist MA, one of very few postgraduate heritage interpretation programmes in the Mediterranean. It reflects ITS's commitment to cultural tourism." },
+  { n:11, f:'11_face_bluff.png', t:'bluff',
+    s:"ITS offers a Master in Business Administration in International Hospitality Management.",
+    r:"BLUFF! ITS does not offer an MBA. Postgraduate offerings at ITS are specialist — such as the MA in Heritage Interpretation — not business administration." },
+  { n:12, f:'12_face_fact.png',  t:'fact',
+    s:"The Bachelor in International Hospitality Management offers specialisations in Spa & Wellness, Finance, Food & Beverage, and Human Resources.",
+    r:"TRUE — Students can specialise across four tracks within this degree, making ITS graduates genuinely industry-ready with a targeted skill set from day one." },
+  { n:13, f:'13_face_bluff.png', t:'bluff',
+    s:"The Gozo campus is located in Qala, not Victoria.",
+    r:"BLUFF! The ITS Gozo campus IS in Victoria — the island's capital, also known as Rabat. Qala is a completely different village across the island." },
+  { n:14, f:'14_face_fact.png',  t:'fact',
+    s:"The Diploma in Climate Friendly Travel reflects ITS's commitment to sustainable tourism education.",
+    r:"TRUE — ITS is ahead of the curve. This diploma addresses one of the most urgent challenges in modern tourism, training graduates for a sustainable industry future." },
+  { n:15, f:'15_face_bluff.png', t:'bluff',
+    s:"ITS students have access to internship placements both locally and internationally.",
+    r:"BLUFF! ITS's work-based learning model is primarily local. Placements happen in Malta's hospitality sector — international experiences exist via Erasmus but are not a standard guarantee." },
+  { n:16, f:'16_face_fact.png',  t:'fact',
+    s:"Tourism consistently accounts for over a quarter of Malta's national GDP.",
+    r:"TRUE — Tourism contributes more than 25% of Malta's GDP, one of the highest tourism-to-GDP ratios in Europe. This makes ITS graduates essential to the national economy." },
+  { n:17, f:'17_face_bluff.png', t:'bluff',
+    s:"ITS offers Foundation programmes for students at different starting points, with multiple entry pathways including Recognition of Prior Learning.",
+    r:"BLUFF! While ITS offers Foundation-level programmes, Recognition of Prior Learning (RPL) is not a standard ITS entry pathway. Entry requires standard academic qualifications." },
+  { n:18, f:'18_face_fact.png',  t:'fact',
+    s:"The Higher National Diploma in Tourist Guiding is a specialist programme unique to ITS.",
+    r:"TRUE — Only ITS in Malta offers this programme, training the country's official professional tourist guides at diploma level. Uniquely and exclusively ITS." },
+  { n:19, f:'19_face_bluff.png', t:'bluff',
+    s:"Tourism and hospitality accounts for roughly 1 in 10 jobs worldwide — one of the largest employment sectors globally.",
+    r:"BLUFF! The '1 in 10 jobs' figure is widely cited but contested and often overstated. The sector is substantial, but this specific statistic is not reliably verified." },
+  { n:20, f:'20_face_fact.png',  t:'fact',
+    s:"ITS operates training restaurants open to the public, where students gain real service experience in a live professional environment.",
+    r:"TRUE — You can actually dine at ITS! Students serve real paying customers in ITS training restaurants — genuine live-environment hospitality experience on campus." },
+  { n:21, f:'21_face_bluff.png', t:'bluff',
+    s:"ITS holds THE-ICE accreditation, giving its qualifications international recognition.",
+    r:"BLUFF again! This is the second THE-ICE card. ITS does NOT hold this accreditation. Sharp players who remembered card 5 should have caught this one." },
+  { n:22, f:'22_face_fact.png',  t:'fact',
+    s:"ITS offers Events programmes at Certificate, Diploma, and Undergraduate Diploma level.",
+    r:"TRUE — Three qualification levels in Events Management. Whether you're starting out or building a career, ITS has an events programme pitched at your level." },
+  { n:23, f:'23_face_bluff.png', t:'bluff',
+    s:"Malta regularly receives well over two million tourist arrivals per year.",
+    r:"BLUFF! Malta's tourist arrivals are significant, but 'well over two million' consistently overstates the typical annual figure." },
+  { n:24, f:'24_face_fact.png',  t:'fact',
+    s:"ITS has a dedicated Food Science Lab on campus, supporting its culinary and food preparation programmes.",
+    r:"TRUE — The Food Science Lab goes beyond cooking. Students explore the chemistry and science of food preparation in a dedicated facility supporting ITS's culinary programmes." },
+  { n:25, f:'25_face_fact.png',  t:'fact',
+    s:"The BSc in Diving Safety Management is the first degree of its kind globally — confirmed by DAN Europe and DIVE Magazine.",
+    r:"TRUE — Double confirmed. Both DAN Europe and DIVE Magazine independently verified this as a genuine world first. Real, validated, global academic distinction." },
+  { n:26, f:'26_face_fact.png',  t:'fact',
+    s:"ITS has an active Erasmus programme giving students access to international study experiences across Europe.",
+    r:"TRUE — ITS students can study abroad via Erasmus exchanges, adding genuine European academic experience to their qualifications. A real draw for internationally minded students." },
+  { n:27, f:'27_face_bluff.png', t:'bluff',
+    s:"ITS trains students for kitchens, bars, dive operations, event production, travel consultancy, heritage tourism, spa management, and executive hospitality leadership.",
+    r:"BLUFF! The list is almost right but 'executive hospitality leadership' is not a current standalone ITS programme pathway. Close — but not quite accurate." },
+  { n:28, f:'28_face_fact.png',  t:'fact',
+    s:"ITS's specialist facilities include a Wine Lab and a Bar Lab.",
+    r:"TRUE — Students don't just read about wine and cocktails. ITS has dedicated Wine and Bar Labs where hands-on, professional training takes place daily." },
+  { n:29, f:'29_face_bluff.png', t:'bluff',
+    s:"The World Tourism Organisation projects long-term growth in international arrivals — technology is enhancing, not replacing, human hospitality roles.",
+    r:"BLUFF! The WTO does project growth, but the claim that technology only 'enhances' rather than disrupts hospitality roles is an oversimplification of a complex and ongoing debate." },
+  { n:30, f:'30_face_fact.png',  t:'fact',
+    s:"ITS highlights strong employability rates — a direct result of its work-based learning and internship model.",
+    r:"TRUE — ITS graduates are employed. The work-based learning model means students graduate with demonstrated professional experience, not just a certificate. Industry knows the difference." },
+];
+
+/* ── FIREBASE ──────────────────────────────────────────────── */
+const FB_CFG = {
+  apiKey:"AIzaSyC3hwSvOmNQw5_MI7gR95LLbhz5lNEMo-M",
+  authDomain:"its-factorbluff.firebaseapp.com",
+  databaseURL:"https://its-factorbluff-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"its-factorbluff",
+  storageBucket:"its-factorbluff.firebasestorage.app",
+  messagingSenderId:"710556896090",
+  appId:"1:710556896090:web:a35ded436ca94f89e78163"
+};
+let db=null, fbOk=false;
+try{ firebase.initializeApp(FB_CFG); db=firebase.database(); fbOk=true; }
+catch(e){ console.warn('Firebase offline:',e.message); }
+
+/* ── STATE ─────────────────────────────────────────────────── */
+const S = {
+  mode:'screen', phase:'attract',
+  sid:null, phoneKey:null,
+  deck:[], ci:0, revealed:false, locked:false, judgeReady:false,
+  nPlayers:2,
+  P:[
+    {name:'Player 1', score:0, streak:0, guess:null},
+    {name:'Player 2', score:0, streak:0, guess:null}
+  ],
+  anchTaps:0, anchTimer:null, anchOpen:false, idleTimer:null
+};
+
+/* ── UTILS ─────────────────────────────────────────────────── */
+const $=id=>document.getElementById(id);
+const cl=(el,add,c)=>el&&el.classList[add?'add':'remove'](c);
+const shuffle=a=>{const b=[...a];for(let i=b.length-1;i>0;i--){const j=0|Math.random()*(i+1);[b[i],b[j]]=[b[j],b[i]];}return b;};
+const randId=(n=6)=>Math.random().toString(36).substr(2,n).toUpperCase();
+
+function show(id){
+  ['attract','phone-join','lobby','game','gameover'].forEach(s=>{
+    const el=$(s); if(el) cl(el,s!==id,'hidden');
+  });
+}
+function resetIdle(){
+  clearTimeout(S.idleTimer);
+  if(S.phase==='playing') S.idleTimer=setTimeout(goAttract,120000);
+}
+
+/* ── BOOT ──────────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded',()=>{
+  const p=new URLSearchParams(location.search);
+  if(p.has('join')){ S.mode='phone'; S.sid=p.get('join'); initPhone(); }
+  else{ initScreen(); }
+});
+
+/* ── PHONE MODE ────────────────────────────────────────────── */
+function initPhone(){ show('phone-join'); }
+
+function phoneJoin(){
+  const name=($('ph-inp').value||'').trim();
+  if(!name){ $('ph-inp').focus(); return; }
+  $('ph-inp').style.display='none';
+  document.querySelector('.ph-btn').style.display='none';
+  $('ph-ok').style.display='block';
+  if(fbOk){
+    const ref=db.ref(`sessions/${S.sid}/reg`).push();
+    S.phoneKey=ref.key;
+    ref.set({name,score:0,t:Date.now()});
+    db.ref(`sessions/${S.sid}/reg/${S.phoneKey}/score`).on('value',s=>{
+      $('ph-score-val').textContent=s.val()||0;
+    });
+  }
+}
+
+/* ── SCREEN MODE ───────────────────────────────────────────── */
+function initScreen(){
+  renderAttractLb();
+  show('attract');
+  S.phase='attract';
+  $('anch-trig').addEventListener('click',anchTap);
+  document.addEventListener('keydown',handleKey);
+  document.addEventListener('touchstart',resetIdle,{passive:true});
+  document.addEventListener('mousedown',resetIdle);
+}
+
+/* ── ATTRACT ───────────────────────────────────────────────── */
+function goAttract(){ renderAttractLb(); show('attract'); S.phase='attract'; closeAnch(); }
+function dismissAttract(){ openLobby(); }
+
+function renderAttractLb(){
+  const lb=getLb();
+  const el=$('att-lb');
+  if(!lb.length){ el.innerHTML='<div class="att-empty">No scores yet — be first!</div>'; return; }
+  el.innerHTML=lb.slice(0,5).map((e,i)=>`
+    <div class="att-lb-row">
+      <span class="att-rank">${['🥇','🥈','🥉','4.','5.'][i]}</span>
+      <span class="att-pname">${e.name}</span>
+      <span class="att-pscore">${e.score}</span>
+    </div>`).join('');
+}
+
+/* ── LOBBY ─────────────────────────────────────────────────── */
+function openLobby(){
+  S.sid=randId();
+  S.phase='lobby';
+  show('lobby');
+  $('lb-chips').innerHTML='<div class="lb-wait">Waiting for players…</div>';
+  $('qr-div').innerHTML='';
+  const url=`${location.origin}${location.pathname}?join=${S.sid}`;
+  try{
+    new QRCode($('qr-div'),{text:url,width:180,height:180,
+      colorDark:'#00205b',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+  }catch(e){
+    $('qr-div').innerHTML=`<p style="color:#333;font-size:10px;padding:8px;word-break:break-all">${url}</p>`;
+  }
+  if(fbOk){
+    db.ref(`sessions/${S.sid}`).set({phase:'lobby',t:Date.now()});
+    db.ref(`sessions/${S.sid}/reg`).on('value',snap=>{
+      const d=snap.val()||{};
+      const names=Object.values(d).map(v=>v.name).filter(Boolean);
+      $('lb-chips').innerHTML=names.length
+        ? names.map(n=>`<div class="lb-chip">${n}</div>`).join('')
+        : '<div class="lb-wait">Waiting for players…</div>';
+    });
+  }
+}
+
+/* ── GAME START ────────────────────────────────────────────── */
+function startGame(){
+  S.nPlayers=2;
+  S.P=[
+    {name:'Player 1',score:0,streak:0,guess:null},
+    {name:'Player 2',score:0,streak:0,guess:null}
+  ];
+  if(fbOk && S.sid){
+    db.ref(`sessions/${S.sid}/reg`).once('value',snap=>{
+      const d=snap.val()||{};
+      const entries=Object.values(d).filter(v=>v.name);
+      if(entries[0]) S.P[0].name=entries[0].name;
+      if(entries[1]) S.P[1].name=entries[1].name;
+      db.ref(`sessions/${S.sid}/reg`).off();
+      launch();
+    });
+  } else { launch(); }
+}
+
+function launch(){
+  S.phase='playing';
+  S.deck=shuffle([...Array(CARDS.length).keys()]);
+  S.ci=0; S.revealed=false; S.locked=false; S.judgeReady=false;
+  S.P.forEach(p=>{p.score=0;p.streak=0;p.guess=null;});
+  $('zone1').style.display='';
+  $('g-bot').className='g-bot versus';
+  $('pname0').textContent=S.P[0].name;
+  $('pname1').textContent=S.P[1].name;
+  updateScores(); updateHi();
+  show('game');
+  loadCard();
+  resetIdle();
+}
+
+/* ── CARD ──────────────────────────────────────────────────── */
+function card(){ return CARDS[S.deck[S.ci]]; }
+
+function loadCard(){
+  S.revealed=false; S.locked=false; S.judgeReady=false;
+  S.P.forEach(p=>p.guess=null);
+  const c=card();
+  $('g-ctr').textContent=`${S.ci+1} / ${CARDS.length}`;
+  $('g-stmt').textContent=c.s;
+  cl($('g-stmt'),true,'blank');
+  const fl=$('flipper');
+  cl(fl,false,'flipped'); cl(fl,false,'card-deal');
+  void fl.offsetWidth;
+  cl(fl,true,'card-deal');
+  $('face-img').src=BASE+c.f;
+  resetBtns();
+  $('g-hint').style.display='inline';
+  $('g-hint').textContent='Waiting for Anchor to reveal…';
+  $('c-fires').style.display='none';
+  cl($('c-lbl'),false,'on');
+  updateCombos();
+}
+
+function doReveal(){
+  if(S.revealed||S.phase!=='playing') return;
+  S.revealed=true;
+  cl($('flipper'),true,'flipped');
+  setTimeout(()=>cl($('g-stmt'),false,'blank'),360);
+  $('g-hint').style.display='none';
+  updateCombos();
+}
+
+function resetBtns(){
+  for(let i=0;i<2;i++){
+    ['pf','pb'].forEach(p=>{
+      const el=$(p+i);
+      if(!el) return;
+      el.className=p==='pf'?'btn-f':'btn-b';
+      el.disabled=false;
+    });
+  }
+}
+
+/* ── GUESS ─────────────────────────────────────────────────── */
+function guess(pi, g){
+  if(!S.revealed||S.locked) return;
+  if(S.P[pi].guess) return;
+  S.P[pi].guess=g;
+  lockPlayer(pi);
+  const allIn=S.P.slice(0,S.nPlayers).every(p=>p.guess!==null);
+  if(allIn){ S.judgeReady=true; $('g-hint').style.display='inline'; $('g-hint').textContent='Anchor: press ⚖️ Judge Round'; }
+  if(fbOk&&S.sid) db.ref(`sessions/${S.sid}/guesses/p${pi}`).set(g);
+}
+
+function lockPlayer(pi){
+  const g=S.P[pi].guess;
+  ['pf','pb'].forEach(p=>{
+    const el=$(p+pi); if(!el) return;
+    el.disabled=true; cl(el,true,'locked');
+  });
+  const chosen=$(g==='fact'?`pf${pi}`:`pb${pi}`);
+  if(chosen){ cl(chosen,false,'locked'); cl(chosen,true,'chosen'); }
+}
+
+/* ── JUDGE ─────────────────────────────────────────────────── */
+function doJudge(){
+  if(!S.revealed||S.phase!=='playing') return;
+  S.P.slice(0,S.nPlayers).forEach((_,i)=>{ if(!S.P[i].guess) lockPlayer(i); });
+  S.locked=true;
+  const correct=card().t;
+  const deltas=S.P.slice(0,S.nPlayers).map((p,i)=>{
+    let d=0;
+    if(p.guess===correct){
+      const mult=p.streak>=5?3:p.streak>=3?2:1;
+      d=(correct==='bluff'?200:100)*mult;
+      p.streak++;
+    } else if(p.guess!==null){ d=-50; p.streak=0; }
+    else p.streak=0;
+    p.score=Math.max(0,p.score+d);
+    return d;
+  });
+  // sync scores to firebase
+  if(fbOk&&S.sid) S.P.slice(0,S.nPlayers).forEach((p,i)=>{
+    db.ref(`sessions/${S.sid}/scores/p${i}`).set(p.score);
+    // update phone score
+    db.ref(`sessions/${S.sid}/reg`).once('value',snap=>{
+      const d=snap.val()||{};
+      Object.entries(d).forEach(([k,v])=>{
+        if(v.name===p.name) db.ref(`sessions/${S.sid}/reg/${k}/score`).set(p.score);
+      });
+    });
+  });
+  showResult(correct,deltas);
+}
+
+/* ── RESULT ────────────────────────────────────────────────── */
+function showResult(correct, deltas){
+  const badge=$('res-badge');
+  const correctNames=S.P.slice(0,S.nPlayers).filter((p,i)=>deltas[i]>0).map(p=>p.name);
+  let txt,cls;
+  if(correct==='bluff'&&correctNames.length){ txt='💥 BUSTED!'; cls='busted'; }
+  else if(correct==='fact'&&correctNames.length){ txt='✓ CONFIRMED!'; cls='confirmed'; }
+  else { txt='✗ WRONG!'; cls='wrong'; }
+  badge.textContent=txt; badge.className=`res-badge ${cls}`;
+  badge.classList.remove('slam'); void badge.offsetWidth; badge.classList.add('slam');
+  const who=$('res-who');
+  who.textContent=correctNames.length===S.nPlayers?'Both players got it!'
+    :correctNames.length?`${correctNames[0]} got it! 🎯`:'Nobody got it this round.';
+  cl(who,true,'on');
+  $('res-txt').textContent=card().r;
+  cl($('res-box'),true,'on');
+  $('res-deltas').innerHTML=S.P.slice(0,S.nPlayers).map((p,i)=>{
+    const d=deltas[i]; const sign=d>0?'+':'';
+    return `<div class="res-d ${d>0?'gain':d<0?'loss':'nil'}">${p.name}: ${sign}${d}pts</div>`;
+  }).join('');
+  cl($('res-deltas'),true,'on');
+  if(cls==='busted'){ flash('rgba(255,30,50,.38)'); confetti('busted'); }
+  else if(cls==='confirmed'){ flash('rgba(255,163,0,.28)'); confetti('gold'); }
+  S.P.slice(0,S.nPlayers).forEach((_,i)=>{ if(deltas[i]!==0) floatScore(deltas[i],i); });
+  cl($('result-ov'),true,'show');
+  updateScores();
+}
+
+function closeResult(){
+  cl($('result-ov'),false,'show');
+  [$('res-who'),$('res-box'),$('res-deltas')].forEach(el=>el&&el.classList.remove('on'));
+}
+
+/* ── NEXT CARD ─────────────────────────────────────────────── */
+function nextCard(){
+  closeResult(); S.ci++;
+  if(S.ci>=CARDS.length){ showGameOver(); return; }
+  S.revealed=false; S.locked=false; S.judgeReady=false;
+  loadCard();
+}
+
+/* ── COMBOS ────────────────────────────────────────────────── */
+function updateCombos(){
+  const max=Math.max(...S.P.slice(0,S.nPlayers).map(p=>p.streak));
+  const fires=$('c-fires'), lbl=$('c-lbl');
+  if(max>=3){
+    fires.style.display='inline';
+    fires.textContent=max>=5?'🔥🔥🔥':'🔥🔥';
+    lbl.textContent=max>=5?'BLAZING ×3!':'×2 COMBO!';
+    cl(lbl,true,'on');
+  } else { fires.style.display='none'; cl(lbl,false,'on'); }
+  S.P.slice(0,S.nPlayers).forEach((p,i)=>{
+    const s=$(`pstreak${i}`), c=$(`pclbl${i}`);
+    if(s) s.textContent=p.streak>=2?'🔥'.repeat(Math.min(p.streak,5)):'';
+    if(c){ cl(c,p.streak>=3,'on'); c.textContent=p.streak>=5?'🔥 BLAZING ×3':'🔥 COMBO ×2'; }
+  });
+}
+
+function updateScores(){
+  S.P.slice(0,S.nPlayers).forEach((p,i)=>{
+    const el=$(`pscore${i}`); if(!el) return;
+    if(el.textContent!==String(p.score)){
+      el.textContent=p.score;
+      el.classList.remove('popping'); void el.offsetWidth; el.classList.add('popping');
+    }
+  });
+  updateCombos();
+}
+
+function updateHi(){
+  const lb=getLb(); $('g-hi').textContent=`Best: ${lb.length?lb[0].score:0}`;
+}
+
+/* ── GAME OVER ─────────────────────────────────────────────── */
+function showGameOver(){
+  S.phase='gameover'; closeResult();
+  S.P.slice(0,S.nPlayers).forEach(p=>{ if(p.score>0) saveLb(p.name,p.score); });
+  const max=Math.max(...S.P.slice(0,S.nPlayers).map(p=>p.score));
+  const prize=$('go-prize');
+  if(max>=500){
+    prize.style.display='';
+    $('go-prize-body').textContent=`Score of ${max} points — outstanding! Show this screen to an ITS Ambassador to claim your prize. 🎉`;
+  } else prize.style.display='none';
+  const sorted=[...S.P.slice(0,S.nPlayers)].sort((a,b)=>b.score-a.score);
+  $('go-rows').innerHTML=sorted.map((p,i)=>`
+    <div class="go-row">
+      <div class="go-row-l">
+        <span class="go-row-rank">${['🏆','🥈','🥉'][i]||''}</span>
+        <span class="go-row-name">${p.name}</span>
+      </div>
+      <span class="go-row-score">${p.score}</span>
+    </div>`).join('');
+  show('gameover'); confetti('gold');
+}
+
+/* ── ANCHOR ────────────────────────────────────────────────── */
+function anchTap(){
+  S.anchTaps++;
+  clearTimeout(S.anchTimer);
+  S.anchTimer=setTimeout(()=>S.anchTaps=0,800);
+  if(S.anchTaps>=3){ S.anchTaps=0; toggleAnch(); }
+}
+function toggleAnch(){ S.anchOpen=!S.anchOpen; cl($('anch-panel'),S.anchOpen,'show'); }
+function closeAnch(){ S.anchOpen=false; cl($('anch-panel'),false,'show'); }
+function doReset(){ if(confirm('Reset to start?')){ closeAnch(); goAttract(); } }
+
+/* ── KEYBOARD ──────────────────────────────────────────────── */
+function handleKey(e){
+  if(S.phase!=='playing') return;
+  switch(e.code){
+    case'Space': e.preventDefault();
+      if(!S.revealed) doReveal();
+      else if(S.judgeReady&&!S.locked) doJudge();
+      else if(S.locked) nextCard();
+      break;
+    case'KeyR': doReveal(); break;
+    case'KeyJ': doJudge(); break;
+    case'KeyN': nextCard(); break;
+    case'KeyA': toggleAnch(); break;
+  }
+}
+
+/* ── ANIMATIONS ────────────────────────────────────────────── */
+function flash(color){
+  const f=$('flash'); f.style.background=color;
+  f.style.animation='none'; void f.offsetWidth;
+  f.style.animation='flash-out .7s ease-out forwards';
+}
+function confetti(type){
+  const cols=type==='busted'
+    ?['#ff3355','#ff8800','#ffee00','#ff66aa']
+    :['#ffa300','#00e5ff','#00ff88','#fff','#ffdd00'];
+  for(let i=0;i<55;i++){
+    const el=document.createElement('div');
+    el.className='cp';
+    const sz=6+Math.random()*10;
+    el.style.cssText=`left:${Math.random()*100}%;width:${sz}px;height:${sz}px;`
+      +`background:${cols[0|Math.random()*cols.length]};`
+      +`border-radius:${Math.random()>.5?'50%':'2px'};`
+      +`animation-delay:${Math.random()*.55}s;`
+      +`animation-duration:${1.8+Math.random()*1.5}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),3400);
+  }
+}
+function floatScore(d,pi){
+  const z=$(pi===0?'zone0':'zone1'); if(!z) return;
+  const r=z.getBoundingClientRect();
+  const el=document.createElement('div');
+  el.className='sfloat';
+  el.textContent=(d>0?'+':'')+d;
+  el.style.color=d>0?'var(--green)':'var(--red)';
+  el.style.left=(r.left+r.width/2-24)+'px';
+  el.style.top=(r.top+36)+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1200);
+}
+
+/* ── LEADERBOARD (localStorage, resets daily) ──────────────── */
+function dayKey(){ const d=new Date(); return `its_${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function getLb(){ try{ return JSON.parse(localStorage.getItem(dayKey())||'[]'); }catch{return[];} }
+function saveLb(name,score){
+  const lb=getLb(); lb.push({name,score,t:Date.now()});
+  lb.sort((a,b)=>b.score-a.score); lb.splice(10);
+  try{ localStorage.setItem(dayKey(),JSON.stringify(lb)); }catch(e){}
+}
+</script>
+</body>
+</html>
